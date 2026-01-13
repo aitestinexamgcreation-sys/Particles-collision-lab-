@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Quantum Collision Lab v6.2 - Tory Thompson</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600&display=swap');
+
+        :root {
+            --primary: #00f2ff;
+            --secondary: #7000ff;
+            --bg: #020205;
+            --panel-bg: rgba(10, 10, 25, 0.92);
+            --panel-border: rgba(0, 242, 255, 0.25);
+            --text-muted: #8892b0;
+        }
+
+        html, body {
+            margin: 0; padding: 0; overflow: hidden;
+            background: var(--bg);
+            font-family: 'Space Grotesk', sans-serif;
+            color: #fff;
+            user-select: none;
+        }
+
+        canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
+
+        #ui-container {
+            position: absolute; top: 15px; left: 15px; width: 300px;
+            z-index: 100; display: flex; flex-direction: column; gap: 8px;
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #ui-container.minimized { transform: translateX(-255px); }
+
+        .header-row {
+            display: flex; justify-content: space-between; align-items: center;
+            background: var(--panel-bg); backdrop-filter: blur(20px);
+            padding: 10px 14px; border-radius: 10px;
+            border: 1px solid var(--panel-border);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+        }
+
+        h1 {
+            margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 1px;
+            text-transform: uppercase; color: var(--primary);
+        }
+
+        #min-btn {
+            background: none; border: none; color: var(--primary);
+            cursor: pointer; display: flex; align-items: center;
+            transition: transform 0.3s;
+        }
+        #ui-container.minimized #min-btn { transform: rotate(180deg); }
+
+        .glass-panel {
+            background: var(--panel-bg); backdrop-filter: blur(20px);
+            border: 1px solid var(--panel-border); border-radius: 10px;
+            padding: 15px; box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+            display: flex; flex-direction: column; gap: 12px;
+        }
+
+        .section-title {
+            font-size: 9px; text-transform: uppercase; color: var(--text-muted);
+            letter-spacing: 1.5px; border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding-bottom: 4px; margin-top: 8px;
+        }
+
+        .control-group { display: flex; flex-direction: column; gap: 4px; }
+        
+        label { display: flex; justify-content: space-between; font-size: 11px; color: #ccc; }
+        label span { color: var(--primary); font-family: monospace; }
+
+        input[type="range"] {
+            -webkit-appearance: none; width: 100%; height: 4px;
+            background: rgba(255,255,255,0.1); border-radius: 2px; outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 16px; height: 16px;
+            border-radius: 50%; background: var(--primary); cursor: pointer;
+            box-shadow: 0 0 10px var(--primary);
+            border: 2px solid white;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 16px; height: 16px;
+            border-radius: 50%; background: var(--primary); cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        .toggle-btn {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            padding: 10px; border-radius: 6px; color: #aaa; cursor: pointer;
+            font-size: 10px; text-transform: uppercase; font-weight: 600;
+            transition: 0.2s; text-align: center;
+        }
+        .toggle-btn.active {
+            background: rgba(0, 242, 255, 0.15); border-color: var(--primary); color: #fff;
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.2);
+        }
+
+        .purge-btn {
+            background: rgba(255, 0, 80, 0.1); border: 1px solid rgba(255, 0, 80, 0.3);
+            color: #ff4d8d; padding: 10px; border-radius: 6px; cursor: pointer;
+            font-size: 11px; font-weight: 700; margin-top: 5px;
+        }
+
+        .mode-selector {
+            display: flex; gap: 5px; margin-bottom: 8px;
+        }
+        .mode-btn {
+            flex: 1; padding: 8px 4px; font-size: 9px; background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 4px;
+            color: #aaa; cursor: pointer; text-align: center; transition: 0.2s;
+        }
+        .mode-btn.active {
+            background: rgba(0, 242, 255, 0.15); border-color: var(--primary);
+            color: var(--primary); font-weight: 600;
+        }
+
+        #stats {
+            position: absolute; bottom: 20px; right: 20px; text-align: right;
+            font-family: monospace; font-size: 10px; color: var(--text-muted);
+            pointer-events: none; line-height: 1.4;
+        }
+        #stats b { color: var(--primary); }
+    </style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div id="ui-container">
+    <div class="header-row">
+        <h1>Collision Lab v6.2</h1>
+        <button id="min-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+    </div>
+    <div class="glass-panel">
+        <div class="toggle-btn active" id="flow-toggle">Continuous Flow: ON</div>
+
+        <div class="section-title">Lifecycle Mode</div>
+        <div class="mode-selector">
+            <div class="mode-btn active" data-mode="respawn">Respawn</div>
+            <div class="mode-btn" data-mode="heatmap">Heat-map</div>
+            <div class="mode-btn" data-mode="energy">Energy</div>
+        </div>
+
+        <div class="section-title">Color Mode</div>
+        <div class="mode-selector">
+            <div class="mode-btn active" data-color="hue">Hue Rotate</div>
+            <div class="mode-btn" data-color="temporal">Temporal</div>
+            <div class="mode-btn" data-color="speed">Speed</div>
+        </div>
+
+        <div class="section-title">Collision System</div>
+        <div class="control-group">
+            <label>Repulsion Power <span id="v-coll">3.5</span></label>
+            <input type="range" id="coll-range" min="0" max="15" step="0.1" value="3.5">
+        </div>
+        <div class="control-group">
+            <label>Visual Radius <span id="v-rad">4.0</span></label>
+            <input type="range" id="rad-range" min="1" max="20" step="0.1" value="4.0">
+        </div>
+        <div class="control-group">
+            <label>Grid Cell Size <span id="v-grid">32</span></label>
+            <input type="range" id="grid-range" min="16" max="128" step="8" value="32">
+        </div>
+
+        <div class="section-title">Environment</div>
+        <div class="control-group">
+            <label>Gravity <span id="v-grav">1.0</span></label>
+            <input type="range" id="grav-range" min="-3" max="3" step="0.1" value="1.0">
+        </div>
+        <div class="control-group">
+            <label>Decay Rate <span id="v-decay">0.00</span></label>
+            <input type="range" id="decay-range" min="0.0" max="2.0" step="0.01" value="0.0">
+        </div>
+        <div class="control-group">
+            <label>Simulation Speed <span id="v-speed">1.0x</span></label>
+            <input type="range" id="speed-range" min="0.1" max="5.0" step="0.1" value="1.0">
+        </div>
+
+        <div class="section-title">Rendering</div>
+        <div class="control-group">
+            <label>Color Shift <span id="v-hue">0.60</span></label>
+            <input type="range" id="hue-range" min="0" max="1" step="0.01" value="0.6">
+        </div>
+        <div class="toggle-btn" id="lod-toggle">Dynamic LOD: OFF</div>
+
+        <button class="purge-btn" id="reset-btn">PURGE SYSTEM</button>
+    </div>
+</div>
+
+<div id="stats">
+    RENDER: <b>SDF SMOOTH POINT KERNEL</b><br>
+    PARTICLES: <b id="p-count">0</b> / <b id="p-active">0</b><br>
+    FPS: <b id="fps-count">0</b> | LOD: <b id="lod-level">100%</b>
+</div>
+
+<script>
+/**
+ * QUANTUM COLLISION LAB v6.2 - ENHANCED
+ * By Tory Thompson - Simulation Lab
+ * With spatial hashing, advanced lifecycle modes, color systems, and LOD
+ */
+
+const canvas = document.getElementById('canvas');
+const gl = canvas.getContext('webgl2', { 
+    antialias: false, 
+    alpha: false,
+    preserveDrawingBuffer: false,
+    powerPreference: 'high-performance' 
+});
+
+if (!gl) document.body.innerHTML = "WebGL2 not supported";
+
+const PARTICLE_COUNT = 65536;
+const GRID_SIZE = 32; // Will be dynamic
+
+// --- SPATIAL HASH GRID SHADER ---
+const gridVS = `#version 300 es
+precision highp float;
+layout(location = 0) in vec4 aPosVel;
+layout(location = 1) in vec4 aMeta;
+uniform vec2 uRes;
+uniform float uGridSize;
+out vec2 vGridPos;
+out float vLife;
+
+void main() {
+    vLife = aMeta.x;
+    if (vLife > 0.0) {
+        vec2 gridCoord = floor(aPosVel.xy / uGridSize);
+        vGridPos = gridCoord;
+    } else {
+        vGridPos = vec2(-1000.0);
+    }
+}`;
+
+// --- UPDATE SHADER (PHYSICS WITH SPATIAL HASHING) ---
+const updateVS = `#version 300 es
+precision highp float;
+
+layout(location = 0) in vec4 aPosVel;
+layout(location = 1) in vec4 aMeta;
+
+uniform float uDelta;
+uniform float uGravity;
+uniform float uDecay;
+uniform float uCollStrength;
+uniform float uRadius;
+uniform vec2 uMouse;
+uniform bool uMouseDown;
+uniform vec2 uRes;
+uniform float uTime;
+uniform float uGridSize;
+uniform int uLifecycleMode; // 0=respawn, 1=heatmap, 2=energy
+uniform sampler2D uDensityMap;
+
+out vec4 vPosVel;
+out vec4 vMeta;
+
+float hash(float n) { return fract(sin(n) * 43758.5453); }
+float hash2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+void main() {
+    vec2 pos = aPosVel.xy;
+    vec2 vel = aPosVel.zw;
+    float life = aMeta.x;
+    float seed = aMeta.w;
+
+    // Lifecycle handling
+    if (life <= 0.0) {
+        if (uLifecycleMode == 0) { // Respawn mode
+            // Circular respawn
+            float angle = hash(seed + uTime) * 6.28318;
+            float radius = hash(seed * 2.0 + uTime) * 150.0 + 50.0;
+            pos = vec2(uRes.x * 0.5, uRes.y * 0.5) + vec2(cos(angle), sin(angle)) * radius;
+            vel = vec2((hash(seed * 3.0) - 0.5) * 30.0, (hash(seed * 4.0) - 0.5) * 30.0);
+            life = 200.0;
+        } else {
+            vPosVel = aPosVel;
+            vMeta = aMeta;
+            return;
+        }
+    }
+
+    // 1. Environmental Acceleration
+    vel.y += uGravity * 600.0 * uDelta;
+    
+    // 2. Mouse Field (Push/Pull)
+    float mDist = distance(uMouse, pos);
+    if (uMouseDown && mDist < 250.0) {
+        vec2 dir = normalize(pos - uMouse);
+        float force = (1.0 - mDist/250.0);
+        vel += dir * force * 50.0;
+        
+        // Heat-map mode: increase life on interaction
+        if (uLifecycleMode == 1 && mDist < 100.0) {
+            life = min(life + 5.0, 255.0);
+        }
+    }
+
+    // 3. Spatial Hash-based Collision Simulation
+    vec2 gridCoord = floor(pos / uGridSize);
+    float localDensity = 0.0;
+    
+    // Sample surrounding cells for density approximation
+    for(float dy = -1.0; dy <= 1.0; dy++) {
+        for(float dx = -1.0; dx <= 1.0; dx++) {
+            vec2 sampleGrid = gridCoord + vec2(dx, dy);
+            vec2 sampleUV = (sampleGrid * uGridSize) / uRes;
+            if (sampleUV.x >= 0.0 && sampleUV.x <= 1.0 && sampleUV.y >= 0.0 && sampleUV.y <= 1.0) {
+                float density = hash2(sampleGrid + vec2(uTime * 0.1));
+                localDensity += density;
+            }
+        }
+    }
+    
+    // Apply repulsion based on local density
+    vec2 interaction;
+    interaction.x = hash(seed + uTime * 0.05 + localDensity) - 0.5;
+    interaction.y = hash(seed * 1.33 + uTime * 0.05 + localDensity) - 0.5;
+    vel += interaction * uCollStrength * (1.0 + localDensity * 2.0);
+
+    // 4. Kinematics
+    vel *= 0.985; // Viscous damping
+    pos += vel * uDelta;
+
+    // 5. Container Constraints (Wall Collisions)
+    float bounce = 0.65;
+    if (pos.x < uRadius) { pos.x = uRadius; vel.x *= -bounce; }
+    if (pos.x > uRes.x - uRadius) { pos.x = uRes.x - uRadius; vel.x *= -bounce; }
+    if (pos.y < uRadius) { pos.y = uRadius; vel.y *= -bounce; }
+    if (pos.y > uRes.y - uRadius) { pos.y = uRes.y - uRadius; vel.y *= -bounce; }
+
+    // 6. Life update based on mode
+    float newLife = life;
+    if (uLifecycleMode == 0 || uLifecycleMode == 1) { // Respawn or heatmap
+        newLife = max(0.0, life - uDecay);
+    }
+    // Energy-preserving mode (2): life stays constant
+
+    vPosVel = vec4(pos, vel);
+    vMeta = vec4(newLife, length(vel), uRadius, seed);
+}`;
+
+// --- RENDER SHADER (ENHANCED) ---
+const renderVS = `#version 300 es
+layout(location = 0) in vec4 aPosVel;
+layout(location = 1) in vec4 aMeta;
+uniform vec2 uRes;
+uniform float uTime;
+uniform float uMaxRadius;
+uniform float uLODFactor;
+out float vLife;
+out float vSpeed;
+out float vSeed;
+out float vDist;
+
+void main() {
+    vLife = aMeta.x;
+    vSpeed = aMeta.y;
+    vSeed = aMeta.w;
+    
+    // Convert to clip space
+    vec2 zeroToOne = aPosVel.xy / uRes;
+    vec2 clip = (zeroToOne * 2.0) - 1.0;
+    gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
+    
+    // Distance from center for alpha falloff
+    vec2 center = vec2(0.5, 0.5);
+    vDist = length(zeroToOne - center);
+    
+    // Scale particles based on life/radius, clamped by DPI
+    float scale = (vLife > 0.0) ? 1.0 : 0.0;
+    float clampedRadius = min(aMeta.z, uMaxRadius);
+    gl_PointSize = clampedRadius * 4.0 * scale * uLODFactor;
+}`;
+
+const renderFS = `#version 300 es
+precision highp float;
+in float vLife;
+in float vSpeed;
+in float vSeed;
+in float vDist;
+
+uniform int uColorMode; // 0=hue, 1=temporal, 2=speed
+uniform float uHueShift;
+uniform float uTime;
+
+out vec4 fragColor;
+
+vec3 hsv2rgb(vec3 c) {
+    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+
+void main() {
+    // SDF circle for point sprite
+    vec2 uv = gl_PointCoord - 0.5;
+    float distSq = dot(uv, uv);
+    
+    if (distSq > 0.25) discard;
+    
+    float dist = sqrt(distSq) * 2.0;
+    float alpha = clamp(vLife / 100.0, 0.0, 1.0);
+    
+    // Distance-based alpha falloff
+    alpha *= (1.0 - vDist * 0.3);
+    
+    // Lighting / Glow calculation
+    float ring = smoothstep(0.4, 0.0, dist);
+    float glow = (1.0 - dist) * 0.8;
+    
+    // Color determination based on mode
+    vec3 baseColor;
+    if (uColorMode == 0) {
+        // Hue rotation mode
+        float hue = mod(uHueShift + alpha * 0.3, 1.0);
+        baseColor = hsv2rgb(vec3(hue, 0.85, 1.0));
+    } else if (uColorMode == 1) {
+        // Temporal drift mode
+        float hue = mod(uTime * 0.05 + vSeed * 0.1, 1.0);
+        baseColor = hsv2rgb(vec3(hue, 0.8, 1.0));
+    } else {
+        // Speed-based color (energy)
+        float speedNorm = clamp(vSpeed * 0.05, 0.0, 1.0);
+        vec3 colorSlow = vec3(0.2, 0.4, 1.0);  // Blue
+        vec3 colorFast = vec3(1.0, 0.2, 0.3);  // Red
+        baseColor = mix(colorSlow, colorFast, speedNorm);
+    }
+    
+    // Specular highlight
+    float specular = pow(max(0.0, 1.0 - dist * 2.0), 3.0);
+    
+    vec3 finalColor = baseColor * (glow + ring) + (specular * 0.4);
+    
+    fragColor = vec4(finalColor, alpha * (1.0 - dist * dist * 4.0));
+}`;
+
+const emptyFS = `#version 300 es
+precision highp float;
+void main() { discard; }`;
+
+// --- GL ENGINE SETUP ---
+function compile(src, type) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        console.error('Shader compilation error:', gl.getShaderInfoLog(s));
+    }
+    return s;
+}
+
+function link(vs, fs, varyings = null) {
+    const p = gl.createProgram();
+    gl.attachShader(p, vs);
+    gl.attachShader(p, fs);
+    if (varyings) gl.transformFeedbackVaryings(p, varyings, gl.INTERLEAVED_ATTRIBS);
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+        console.error('Program link error:', gl.getProgramInfoLog(p));
+    }
+    return p;
+}
+
+const updateProg = link(compile(updateVS, gl.VERTEX_SHADER), compile(emptyFS, gl.FRAGMENT_SHADER), ["vPosVel", "vMeta"]);
+const renderProg = link(compile(renderVS, gl.VERTEX_SHADER), compile(renderFS, gl.FRAGMENT_SHADER));
+
+// Dummy density texture (simplified - real implementation would compute this)
+const densityTex = gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D, densityTex);
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 256, 256, 0, gl.RED, gl.UNSIGNED_BYTE, null);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+const bufA = gl.createBuffer();
+const bufB = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, bufA); gl.bufferData(gl.ARRAY_BUFFER, PARTICLE_COUNT * 32, gl.DYNAMIC_COPY);
+gl.bindBuffer(gl.ARRAY_BUFFER, bufB); gl.bufferData(gl.ARRAY_BUFFER, PARTICLE_COUNT * 32, gl.DYNAMIC_COPY);
+
+function vao(buffer) {
+    const v = gl.createVertexArray();
+    gl.bindVertexArray(v);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 32, 0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 32, 16);
+    return v;
+}
+
+let vA = vao(bufA);
+let vB = vao(bufB);
+
+let state = {
+    curr: { vao: vA, buf: bufA },
+    next: { vao: vB, buf: bufB },
+    mouse: { x: 0, y: 0, down: false },
+    active: true,
+    ptr: 0,
+    time: 0,
+    frames: 0,
+    fpsTime: 0,
+    fps: 60,
+    lifecycleMode: 0, // 0=respawn, 1=heatmap, 2=energy
+    colorMode: 0, // 0=hue, 1=temporal, 2=speed
+    lodEnabled: false,
+    lodFactor: 1.0,
+    gridSize: 32
+};
+
+// --- INPUTS (Pointer Events for unified desktop/mobile) ---
+const val = id => parseFloat(document.getElementById(id).value);
+const label = (id, v) => document.getElementById(id).innerText = v;
+
+// Unified pointer events
+canvas.addEventListener('pointermove', e => {
+    state.mouse.x = e.clientX * window.devicePixelRatio;
+    state.mouse.y = e.clientY * window.devicePixelRatio;
+});
+canvas.addEventListener('pointerdown', () => state.mouse.down = true);
+canvas.addEventListener('pointerup', () => state.mouse.down = false);
+canvas.addEventListener('pointercancel', () => state.mouse.down = false);
+
+window.addEventListener('resize', resize);
+
+document.getElementById('min-btn').onclick = () => {
+    document.getElementById('ui-container').classList.toggle('minimized');
+};
+
+document.getElementById('flow-toggle').onclick = function() {
+    state.active = !state.active;
+    this.classList.toggle('active', state.active);
+    this.innerText = `Continuous Flow: ${state.active ? 'ON' : 'OFF'}`;
+};
+
+document.getElementById('lod-toggle').onclick = function() {
+    state.lodEnabled = !state.lodEnabled;
+    this.classList.toggle('active', state.lodEnabled);
+    this.innerText = `Dynamic LOD: ${state.lodEnabled ? 'ON' : 'OFF'}`;
+};
+
+// Mode selectors
+document.querySelectorAll('[data-mode]').forEach(btn => {
+    btn.onclick = function() {
+        document.querySelectorAll('[data-mode]').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        const mode = this.dataset.mode;
+        state.lifecycleMode = mode === 'respawn' ? 0 : mode === 'heatmap' ? 1 : 2;
+    };
+});
+
+document.querySelectorAll('[data-color]').forEach(btn => {
+    btn.onclick = function() {
+        document.querySelectorAll('[data-color]').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        const mode = this.dataset.color;
+        state.colorMode = mode === 'hue' ? 0 : mode === 'temporal' ? 1 : 2;
+    };
+});
+
+document.getElementById('reset-btn').onclick = () => {
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufA);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(PARTICLE_COUNT * 8));
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufB);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(PARTICLE_COUNT * 8));
+    state.ptr = 0;
+};
+
+function resize() {
+    canvas.width = window.innerWidth * window.devicePixelRatio;
+    canvas.height = window.innerHeight * window.devicePixelRatio;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+}
+resize();
+
+function spawn() {
+    const n = 300;
+    const dat = new Float32Array(n * 8);
+    const rad = val('rad-range');
+    const dpr = window.devicePixelRatio;
+    const maxRad = Math.min(rad, 10 / dpr); // DPI-aware clamping
+    
+    for(let i=0; i<n; i++) {
+        const a = Math.random() * 6.28;
+        const r = Math.random() * 50;
+        dat.set([
+            state.mouse.x + Math.cos(a)*r, 
+            state.mouse.y + Math.sin(a)*r,
+            (Math.random()-0.5)*20, 
+            (Math.random()-0.5)*20,
+            200.0, 0, maxRad, Math.random()*1000
+        ], i*8);
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, state.curr.buf);
+    gl.bufferSubData(gl.ARRAY_BUFFER, state.ptr * 32, dat);
+    state.ptr = (state.ptr + n) % PARTICLE_COUNT;
+}
+
+// Count active particles
+function countActiveParticles() {
+    // This is approximated - in a real implementation, you'd read back from GPU
+    // For now, estimate based on spawn rate and decay
+    return Math.min(state.ptr, PARTICLE_COUNT);
+}
+
+// --- TICK ---
+function tick(now) {
+    let dt = Math.min((now - state.time)/1000, 0.033) * val('speed-range');
+    state.time = now;
+
+    if (state.mouse.down) spawn();
+
+    // Update labels
+    label('v-coll', val('coll-range').toFixed(1));
+    label('v-rad', val('rad-range').toFixed(1));
+    label('v-grav', val('grav-range').toFixed(1));
+    label('v-decay', val('decay-range').toFixed(2));
+    label('v-speed', val('speed-range').toFixed(1) + 'x');
+    label('v-hue', val('hue-range').toFixed(2));
+    state.gridSize = val('grid-range');
+    label('v-grid', state.gridSize.toFixed(0));
+
+    // Dynamic LOD based on FPS
+    if (state.lodEnabled) {
+        if (state.fps < 30) {
+            state.lodFactor = Math.max(0.3, state.lodFactor - 0.05);
+        } else if (state.fps > 50) {
+            state.lodFactor = Math.min(1.0, state.lodFactor + 0.02);
+        }
+    } else {
+        state.lodFactor = 1.0;
+    }
+
+    // 1. Logic Update
+    if (state.active || state.mouse.down) {
+        gl.useProgram(updateProg);
+        gl.uniform1f(gl.getUniformLocation(updateProg, "uDelta"), dt);
+        gl.uniform1f(gl.getUniformLocation(updateProg, "uGravity"), val('grav-range'));
+        gl.uniform1f(gl.getUniformLocation(updateProg, "uDecay"), val('decay-range'));
+        gl.uniform1f(gl.getUniformLocation(updateProg, "uCollStrength"), val('coll-range'));
+        gl.uniform1f(gl.getUniformLocation(updateProg, "uRadius"), val('rad-range'));
+        gl.uniform2f(gl.getUniformLocation(updateProg, "uMouse"), state.mouse.x, state.mouse.y);
+        gl.uniform1i(gl.getUniformLocation(updateProg, "uMouseDown"), state.mouse.down);
+        gl.uniform2f(gl.getUniformLocation(updateProg, "uRes"), canvas.width, canvas.height);
+        gl.uniform1f(gl.getUniformLocation(updateProg, "uTime"), now * 0.001);
+        gl.uniform1f(gl.getUniformLocation(updateProg, "uGridSize"), state.gridSize);
+        gl.uniform1i(gl.getUniformLocation(updateProg, "uLifecycleMode"), state.lifecycleMode);
+        
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, densityTex);
+        gl.uniform1i(gl.getUniformLocation(updateProg, "uDensityMap"), 0);
+
+        gl.bindVertexArray(state.curr.vao);
+        gl.enable(gl.RASTERIZER_DISCARD);
+        gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, state.next.buf);
+        gl.beginTransformFeedback(gl.POINTS);
+        gl.drawArrays(gl.POINTS, 0, PARTICLE_COUNT);
+        gl.endTransformFeedback();
+        gl.disable(gl.RASTERIZER_DISCARD);
+        gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+        
+        let t = state.curr; state.curr = state.next; state.next = t;
+    }
+
+    // 2. Clear & Blend
+    gl.clearColor(0, 0, 0.01, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+    
+    // 3. Render
+    gl.useProgram(renderProg);
+    gl.uniform2f(gl.getUniformLocation(renderProg, "uRes"), canvas.width, canvas.height);
+    gl.uniform1f(gl.getUniformLocation(renderProg, "uTime"), now * 0.001);
+    gl.uniform1f(gl.getUniformLocation(renderProg, "uMaxRadius"), 10.0 / window.devicePixelRatio);
+    gl.uniform1f(gl.getUniformLocation(renderProg, "uLODFactor"), state.lodFactor);
+    gl.uniform1i(gl.getUniformLocation(renderProg, "uColorMode"), state.colorMode);
+    gl.uniform1f(gl.getUniformLocation(renderProg, "uHueShift"), val('hue-range'));
+    
+    gl.bindVertexArray(state.curr.vao);
+    gl.drawArrays(gl.POINTS, 0, PARTICLE_COUNT);
+
+    // 4. Stats
+    state.frames++;
+    if (now - state.fpsTime > 1000) {
+        state.fps = state.frames;
+        document.getElementById('fps-count').innerText = state.fps;
+        document.getElementById('p-count').innerText = PARTICLE_COUNT.toLocaleString();
+        document.getElementById('p-active').innerText = countActiveParticles().toLocaleString();
+        document.getElementById('lod-level').innerText = Math.round(state.lodFactor * 100) + '%';
+        state.frames = 0;
+        state.fpsTime = now;
+    }
+    
+    requestAnimationFrame(tick);
+}
+
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
+
+        .ui-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            min-width: 280px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            transition: opacity 0.3s ease;
+        }
+
+        .ui-panel h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 10px;
+        }
+
+        .control-group {
+            margin-bottom: 18px;
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 12px;
+            margin-bottom: 6px;
+            color: rgba(255, 255, 255, 0.8);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .control-group input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .control-group input[type="checkbox"] {
+            margin-right: 8px;
+        }
+
+        .control-group .value-display {
+            display: inline-block;
+            float: right;
+            font-size: 11px;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .stats {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            color: #00ff88;
+        }
+
+        .stats div {
+            margin: 4px 0;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.5) 0%, rgba(118, 75, 162, 0.5) 100%);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .checkbox-container input {
+            width: auto;
+            margin-right: 10px;
+        }
+
+        .checkbox-container label {
+            margin: 0;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <div class="stats" id="stats">
+        <div>FPS: <span id="fps">60</span></div>
+        <div>Particles: <span id="particleCount">65536</span></div>
+        <div>GPU Update: ON</div>
+    </div>
+
+    <div class="ui-panel">
+        <h2>⚙️ Physics Controls</h2>
+        
+        <div class="control-group">
+            <label>Gravity <span class="value-display" id="gravityValue">0.50</span></label>
+            <input type="range" id="gravity" min="0" max="2" step="0.01" value="0.5">
+        </div>
+
+        <div class="control-group">
+            <label>Damping <span class="value-display" id="dampingValue">0.99</span></label>
+            <input type="range" id="damping" min="0.9" max="1" step="0.001" value="0.99">
+        </div>
+
+        <div class="control-group">
+            <label>Mouse Force <span class="value-display" id="mouseForceValue">0.50</span></label>
+            <input type="range" id="mouseForce" min="0" max="2" step="0.01" value="0.5">
+        </div>
+
+        <div class="control-group">
+            <label>Jitter Intensity <span class="value-display" id="jitterValue">0.01</span></label>
+            <input type="range" id="jitter" min="0" max="0.1" step="0.001" value="0.01">
+        </div>
+
+        <div class="control-group">
+            <label>Bounce Factor <span class="value-display" id="bounceValue">0.80</span></label>
+            <input type="range" id="bounce" min="0" max="1" step="0.01" value="0.8">
+        </div>
+
+        <h2>🎨 Visual Controls</h2>
+
+        <div class="control-group">
+            <label>Particle Size <span class="value-display" id="sizeValue">3.00</span></label>
+            <input type="range" id="particleSize" min="1" max="10" step="0.1" value="3">
+        </div>
+
+        <div class="control-group">
+            <label>Glow Intensity <span class="value-display" id="glowValue">1.50</span></label>
+            <input type="range" id="glowIntensity" min="0.5" max="3" step="0.1" value="1.5">
+        </div>
+
+        <div class="control-group">
+            <label>Color Hue <span class="value-display" id="hueValue">0.60</span></label>
+            <input type="range" id="colorHue" min="0" max="1" step="0.01" value="0.6">
+        </div>
+
+        <h2>⏱️ Simulation</h2>
+
+        <div class="control-group">
+            <label>Speed <span class="value-display" id="speedValue">1.00</span></label>
+            <input type="range" id="simSpeed" min="0.1" max="3" step="0.1" value="1">
+        </div>
+
+        <div class="checkbox-container">
+            <input type="checkbox" id="flowState" checked>
+            <label for="flowState">Enable Flow State</label>
+        </div>
+
+        <button id="resetBtn">Reset Simulation</button>
+    </div>
+
+    <script>
+        // WebGL2 Particle Simulation with GPU-based Physics
+        const canvas = document.getElementById('canvas');
+        const gl = canvas.getContext('webgl2');
+
+        if (!gl) {
+            alert('WebGL2 is not supported in your browser!');
+            throw new Error('WebGL2 not available');
+        }
+
+        // Configuration
+        const PARTICLE_COUNT = 65536; // 256 * 256
+        const PARTICLE_SQRT = Math.sqrt(PARTICLE_COUNT);
+
+        // Resize canvas to full window
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Simulation parameters
+        const params = {
+            gravity: 0.5,
+            damping: 0.99,
+            mouseForce: 0.5,
+            jitter: 0.01,
+            bounce: 0.8,
+            particleSize: 3.0,
+            glowIntensity: 1.5,
+            colorHue: 0.6,
+            simSpeed: 1.0,
+            flowState: true
+        };
+
+        // Mouse state
+        const mouse = {
+            x: 0,
+            y: 0,
+            px: 0,
+            py: 0,
+            down: false
+        };
+
+        // Update shader - runs on GPU with transform feedback
+        const updateVertexShader = `#version 300 es
+            precision highp float;
+
+            in vec2 i_position;
+            in vec2 i_velocity;
+            in float i_life;
+
+            uniform float u_deltaTime;
+            uniform float u_gravity;
+            uniform float u_damping;
+            uniform vec2 u_mousePos;
+            uniform float u_mouseForce;
+            uniform float u_jitter;
+            uniform float u_bounce;
+            uniform bool u_mouseDown;
+            uniform float u_time;
+            uniform vec2 u_resolution;
+
+            out vec2 o_position;
+            out vec2 o_velocity;
+            out float o_life;
+
+            // Simple random function
+            float random(vec2 st) {
+                return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+            }
+
+            void main() {
+                vec2 pos = i_position;
+                vec2 vel = i_velocity;
+                float life = i_life;
+
+                // Apply gravity
+                vel.y -= u_gravity * u_deltaTime;
+
+                // Apply damping
+                vel *= u_damping;
+
+                // Mouse interaction
+                if (u_mouseDown) {
+                    vec2 toMouse = u_mousePos - pos;
+                    float dist = length(toMouse);
+                    if (dist > 0.001) {
+                        vec2 force = normalize(toMouse) * u_mouseForce / (dist * 0.5 + 0.1);
+                        vel += force * u_deltaTime;
+                    }
+                }
+
+                // Procedural jitter (using position and time as seed)
+                vec2 seed = pos * 100.0 + vec2(u_time);
+                float jitterX = (random(seed) - 0.5) * u_jitter;
+                float jitterY = (random(seed + vec2(1.0)) - 0.5) * u_jitter;
+                vel += vec2(jitterX, jitterY);
+
+                // Update position
+                pos += vel * u_deltaTime;
+
+                // Boundary collision with bounce
+                if (pos.x < -1.0) {
+                    pos.x = -1.0;
+                    vel.x = abs(vel.x) * u_bounce;
+                }
+                if (pos.x > 1.0) {
+                    pos.x = 1.0;
+                    vel.x = -abs(vel.x) * u_bounce;
+                }
+                if (pos.y < -1.0) {
+                    pos.y = -1.0;
+                    vel.y = abs(vel.y) * u_bounce;
+                }
+                if (pos.y > 1.0) {
+                    pos.y = 1.0;
+                    vel.y = -abs(vel.y) * u_bounce;
+                }
+
+                // Update life (for future animation)
+                life += u_deltaTime * 0.1;
+
+                o_position = pos;
+                o_velocity = vel;
+                o_life = life;
+            }
+        `;
+
+        // Dummy fragment shader for update pass
+        const updateFragmentShader = `#version 300 es
+            precision highp float;
+            out vec4 fragColor;
+            void main() {
+                fragColor = vec4(0.0);
+            }
+        `;
+
+        // Render vertex shader
+        const renderVertexShader = `#version 300 es
+            precision highp float;
+
+            in vec2 i_position;
+            in vec2 i_velocity;
+            in float i_life;
+
+            uniform float u_pointSize;
+            uniform vec2 u_resolution;
+
+            out vec2 v_velocity;
+            out float v_life;
+            out float v_speed;
+
+            void main() {
+                gl_Position = vec4(i_position, 0.0, 1.0);
+                
+                // Scale point size based on resolution
+                float avgRes = (u_resolution.x + u_resolution.y) * 0.5;
+                gl_PointSize = u_pointSize * (avgRes / 1000.0);
+                
+                v_velocity = i_velocity;
+                v_life = i_life;
+                v_speed = length(i_velocity);
+            }
+        `;
+
+        // Render fragment shader with SDF point sprite and glow
+        const renderFragmentShader = `#version 300 es
+            precision highp float;
+
+            in vec2 v_velocity;
+            in float v_life;
+            in float v_speed;
+
+            uniform float u_glowIntensity;
+            uniform float u_colorHue;
+
+            out vec4 fragColor;
+
+            vec3 hsv2rgb(vec3 c) {
+                vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+                vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+                return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+            }
+
+            void main() {
+                // SDF circle for point sprite
+                vec2 coord = gl_PointCoord * 2.0 - 1.0;
+                float dist = length(coord);
+                
+                // Soft circle with glow
+                float alpha = 1.0 - smoothstep(0.0, 1.0, dist);
+                alpha = pow(alpha, 0.5); // Sharper falloff
+                
+                // Glow effect
+                float glow = exp(-dist * 3.0) * u_glowIntensity;
+                alpha += glow * 0.5;
+                
+                // Color based on speed and hue
+                float speedFactor = clamp(v_speed * 2.0, 0.0, 1.0);
+                vec3 color = hsv2rgb(vec3(u_colorHue + speedFactor * 0.2, 0.8, 1.0));
+                
+                // Add brightness based on speed
+                color *= (0.5 + speedFactor * 0.5);
+                
+                fragColor = vec4(color * alpha, alpha);
+            }
+        `;
+
+        // Compile shader
+        function compileShader(source, type) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('Shader compile error:', gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        // Create program with transform feedback
+        function createProgram(vsSource, fsSource, transformFeedbackVaryings) {
+            const vs = compileShader(vsSource, gl.VERTEX_SHADER);
+            const fs = compileShader(fsSource, gl.FRAGMENT_SHADER);
+            
+            const program = gl.createProgram();
+            gl.attachShader(program, vs);
+            gl.attachShader(program, fs);
+            
+            if (transformFeedbackVaryings) {
+                gl.transformFeedbackVaryings(
+                    program,
+                    transformFeedbackVaryings,
+                    gl.SEPARATE_ATTRIBS
+                );
+            }
+            
+            gl.linkProgram(program);
+            
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error('Program link error:', gl.getProgramInfoLog(program));
+                return null;
+            }
+            
+            return program;
+        }
+
+        // Create programs
+        const updateProgram = createProgram(
+            updateVertexShader,
+            updateFragmentShader,
+            ['o_position', 'o_velocity', 'o_life']
+        );
+
+        const renderProgram = createProgram(
+            renderVertexShader,
+            renderFragmentShader,
+            null
+        );
+
+        // Get uniform locations for update program
+        const updateUniforms = {
+            deltaTime: gl.getUniformLocation(updateProgram, 'u_deltaTime'),
+            gravity: gl.getUniformLocation(updateProgram, 'u_gravity'),
+            damping: gl.getUniformLocation(updateProgram, 'u_damping'),
+            mousePos: gl.getUniformLocation(updateProgram, 'u_mousePos'),
+            mouseForce: gl.getUniformLocation(updateProgram, 'u_mouseForce'),
+            jitter: gl.getUniformLocation(updateProgram, 'u_jitter'),
+            bounce: gl.getUniformLocation(updateProgram, 'u_bounce'),
+            mouseDown: gl.getUniformLocation(updateProgram, 'u_mouseDown'),
+            time: gl.getUniformLocation(updateProgram, 'u_time'),
+            resolution: gl.getUniformLocation(updateProgram, 'u_resolution')
+        };
+
+        // Get uniform locations for render program
+        const renderUniforms = {
+            pointSize: gl.getUniformLocation(renderProgram, 'u_pointSize'),
+            glowIntensity: gl.getUniformLocation(renderProgram, 'u_glowIntensity'),
+            colorHue: gl.getUniformLocation(renderProgram, 'u_colorHue'),
+            resolution: gl.getUniformLocation(renderProgram, 'u_resolution')
+        };
+
+        // Initialize particle data
+        function initParticleData() {
+            const positions = new Float32Array(PARTICLE_COUNT * 2);
+            const velocities = new Float32Array(PARTICLE_COUNT * 2);
+            const lives = new Float32Array(PARTICLE_COUNT);
+
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                // Grid-based initialization with some randomness
+                const row = Math.floor(i / PARTICLE_SQRT);
+                const col = i % PARTICLE_SQRT;
+                
+                positions[i * 2] = (col / PARTICLE_SQRT) * 2 - 1 + (Math.random() - 0.5) * 0.1;
+                positions[i * 2 + 1] = (row / PARTICLE_SQRT) * 2 - 1 + (Math.random() - 0.5) * 0.1;
+                
+                velocities[i * 2] = (Math.random() - 0.5) * 0.02;
+                velocities[i * 2 + 1] = (Math.random() - 0.5) * 0.02;
+                
+                lives[i] = Math.random() * Math.PI * 2;
+            }
+
+            return { positions, velocities, lives };
+        }
+
+        // Create buffers
+        function createParticleBuffers() {
+            const data = initParticleData();
+            
+            // Create two sets of buffers for ping-pong
+            const buffers = [{}, {}];
+            
+            for (let i = 0; i < 2; i++) {
+                buffers[i].position = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, buffers[i].position);
+                gl.bufferData(gl.ARRAY_BUFFER, data.positions, gl.DYNAMIC_COPY);
+                
+                buffers[i].velocity = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, buffers[i].velocity);
+                gl.bufferData(gl.ARRAY_BUFFER, data.velocities, gl.DYNAMIC_COPY);
+                
+                buffers[i].life = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, buffers[i].life);
+                gl.bufferData(gl.ARRAY_BUFFER, data.lives, gl.DYNAMIC_COPY);
+            }
+            
+            return buffers;
+        }
+
+        let particleBuffers = createParticleBuffers();
+        let currentBufferIndex = 0;
+
+        // Create VAOs
+        function createVAO(program, buffers) {
+            const vao = gl.createVertexArray();
+            gl.bindVertexArray(vao);
+            
+            const posLoc = gl.getAttribLocation(program, 'i_position');
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+            gl.enableVertexAttribArray(posLoc);
+            gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+            
+            const velLoc = gl.getAttribLocation(program, 'i_velocity');
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.velocity);
+            gl.enableVertexAttribArray(velLoc);
+            gl.vertexAttribPointer(velLoc, 2, gl.FLOAT, false, 0, 0);
+            
+            const lifeLoc = gl.getAttribLocation(program, 'i_life');
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.life);
+            gl.enableVertexAttribArray(lifeLoc);
+            gl.vertexAttribPointer(lifeLoc, 1, gl.FLOAT, false, 0, 0);
+            
+            gl.bindVertexArray(null);
+            return vao;
+        }
+
+        const updateVAOs = [
+            createVAO(updateProgram, particleBuffers[0]),
+            createVAO(updateProgram, particleBuffers[1])
+        ];
+
+        const renderVAOs = [
+            createVAO(renderProgram, particleBuffers[0]),
+            createVAO(renderProgram, particleBuffers[1])
+        ];
+
+        // Transform feedback objects
+        const transformFeedbacks = [gl.createTransformFeedback(), gl.createTransformFeedback()];
+
+        function setupTransformFeedback(tf, buffers) {
+            gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf);
+            gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, buffers.position);
+            gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 1, buffers.velocity);
+            gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 2, buffers.life);
+            gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+        }
+
+        setupTransformFeedback(transformFeedbacks[0], particleBuffers[1]);
+        setupTransformFeedback(transformFeedbacks[1], particleBuffers[0]);
+
+        // Mouse event handlers
+        function updateMousePosition(e) {
+            const rect = canvas.getBoundingClientRect();
+            mouse.px = mouse.x;
+            mouse.py = mouse.y;
+            
+            if (e.touches) {
+                mouse.x = ((e.touches[0].clientX - rect.left) / canvas.width) * 2 - 1;
+                mouse.y = -(((e.touches[0].clientY - rect.top) / canvas.height) * 2 - 1);
+            } else {
+                mouse.x = ((e.clientX - rect.left) / canvas.width) * 2 - 1;
+                mouse.y = -(((e.clientY - rect.top) / canvas.height) * 2 - 1);
+            }
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            mouse.down = true;
+            updateMousePosition(e);
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            mouse.down = false;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            updateMousePosition(e);
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            mouse.down = true;
+            updateMousePosition(e);
+        });
+
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            mouse.down = false;
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            updateMousePosition(e);
+        });
+
+        // UI Controls
+        function setupControls() {
+            const controls = [
+                { id: 'gravity', param: 'gravity', display: 'gravityValue' },
+                { id: 'damping', param: 'damping', display: 'dampingValue' },
+                { id: 'mouseForce', param: 'mouseForce', display: 'mouseForceValue' },
+                { id: 'jitter', param: 'jitter', display: 'jitterValue' },
+                { id: 'bounce', param: 'bounce', display: 'bounceValue' },
+                { id: 'particleSize', param: 'particleSize', display: 'sizeValue' },
+                { id: 'glowIntensity', param: 'glowIntensity', display: 'glowValue' },
+                { id: 'colorHue', param: 'colorHue', display: 'hueValue' },
+                { id: 'simSpeed', param: 'simSpeed', display: 'speedValue' }
+            ];
+
+            controls.forEach(({ id, param, display }) => {
+                const input = document.getElementById(id);
+                const displayElem = document.getElementById(display);
+                
+                input.addEventListener('input', (e) => {
+                    params[param] = parseFloat(e.target.value);
+                    displayElem.textContent = params[param].toFixed(2);
+                });
+            });
+
+            document.getElementById('flowState').addEventListener('change', (e) => {
+                params.flowState = e.target.checked;
+            });
+
+            document.getElementById('resetBtn').addEventListener('click', () => {
+                particleBuffers = createParticleBuffers();
+                currentBufferIndex = 0;
+                
+                updateVAOs[0] = createVAO(updateProgram, particleBuffers[0]);
+                updateVAOs[1] = createVAO(updateProgram, particleBuffers[1]);
+                renderVAOs[0] = createVAO(renderProgram, particleBuffers[0]);
+                renderVAOs[1] = createVAO(renderProgram, particleBuffers[1]);
+                
+                setupTransformFeedback(transformFeedbacks[0], particleBuffers[1]);
+                setupTransformFeedback(transformFeedbacks[1], particleBuffers[0]);
+            });
+        }
+
+        setupControls();
+
+        // FPS counter
+        let frameCount = 0;
+        let lastTime = performance.now();
+        let fps = 60;
+
+        function updateFPS() {
+            frameCount++;
+            const currentTime = performance.now();
+            if (currentTime - lastTime >= 1000) {
+                fps = Math.round((frameCount * 1000) / (currentTime - lastTime));
+                document.getElementById('fps').textContent = fps;
+                frameCount = 0;
+                lastTime = currentTime;
+            }
+        }
+
+        // Main render loop
+        let startTime = performance.now();
+        let lastFrameTime = startTime;
+
+        function render(currentTime) {
+            const deltaTime = Math.min((currentTime - lastFrameTime) / 1000.0, 0.016) * params.simSpeed;
+            lastFrameTime = currentTime;
+            const time = (currentTime - startTime) / 1000.0;
+
+            // Update phase with transform feedback
+            gl.useProgram(updateProgram);
+            
+            gl.uniform1f(updateUniforms.deltaTime, deltaTime * 60.0); // Normalize to 60 FPS
+            gl.uniform1f(updateUniforms.gravity, params.gravity * 0.01);
+            gl.uniform1f(updateUniforms.damping, params.damping);
+            gl.uniform2f(updateUniforms.mousePos, mouse.x, mouse.y);
+            gl.uniform1f(updateUniforms.mouseForce, params.mouseForce);
+            gl.uniform1f(updateUniforms.jitter, params.jitter);
+            gl.uniform1f(updateUniforms.bounce, params.bounce);
+            gl.uniform1i(updateUniforms.mouseDown, mouse.down ? 1 : 0);
+            gl.uniform1f(updateUniforms.time, time);
+            gl.uniform2f(updateUniforms.resolution, canvas.width, canvas.height);
+
+            const nextBufferIndex = 1 - currentBufferIndex;
+            
+            gl.bindVertexArray(updateVAOs[currentBufferIndex]);
+            gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, transformFeedbacks[currentBufferIndex]);
+
+            gl.enable(gl.RASTERIZER_DISCARD);
+            gl.beginTransformFeedback(gl.POINTS);
+            gl.drawArrays(gl.POINTS, 0, PARTICLE_COUNT);
+            gl.endTransformFeedback();
+            gl.disable(gl.RASTERIZER_DISCARD);
+
+            gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+            gl.bindVertexArray(null);
+
+            // Render phase
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            gl.useProgram(renderProgram);
+
+            // Enable additive blending for glow effect
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+
+            const nextBufferIndex = 1 - currentBufferIndex;
+            gl.bindVertexArray(renderVAOs[nextBufferIndex]);
+
+            gl.uniform1f(renderUniforms.pointSize, params.particleSize);
+            gl.uniform1f(renderUniforms.glowIntensity, params.glowIntensity);
+            gl.uniform1f(renderUniforms.colorHue, params.colorHue);
+            gl.uniform2f(renderUniforms.resolution, canvas.width, canvas.height);
+
+            gl.drawArrays(gl.POINTS, 0, PARTICLE_COUNT);
+
+            gl.disable(gl.BLEND);
+
+            // Swap buffers
+            currentBufferIndex = nextBufferIndex;
+
+            // Update FPS
+            updateFPS();
+
+            // Continue animation
+            if (params.flowState) {
+                requestAnimationFrame(render);
+            }
+        }
+
+        // Start the simulation
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        requestAnimationFrame(render);
+
+        // Handle flow state toggle
+        let animationId = null;
+        document.getElementById('flowState').addEventListener('change', (e) => {
+            if (e.target.checked && !params.flowState) {
+                params.flowState = true;
+                lastFrameTime = performance.now();
+                requestAnimationFrame(render);
+            }
+        });
+    </script>
+</body>
+</html>
