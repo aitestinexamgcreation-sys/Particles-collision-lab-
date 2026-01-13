@@ -218,7 +218,9 @@ const gl = canvas.getContext('webgl2', {
 if (!gl) document.body.innerHTML = "WebGL2 not supported";
 
 const PARTICLE_COUNT = 65536;
+const PARTICLE_SIZE_BYTES = 8 * 4; // 8 floats per particle (position(2) + velocity(2) + life + speed + radius + seed) * 4 bytes
 const GRID_SIZE = 32; // Will be dynamic
+const CLEAR_COLOR_BLUE = 0.01; // Slight blue tint for background
 
 // --- SPATIAL HASH GRID SHADER ---
 const gridVS = `#version 300 es
@@ -309,6 +311,8 @@ void main() {
     float localDensity = 0.0;
     
     // Sample surrounding cells for density approximation
+    // Note: This uses a hash-based approximation. For production,
+    // consider implementing a proper density texture computed in a separate pass.
     for(float dy = -1.0; dy <= 1.0; dy++) {
         for(float dx = -1.0; dx <= 1.0; dx++) {
             vec2 sampleGrid = gridCoord + vec2(dx, dy);
@@ -484,15 +488,16 @@ gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
 const bufA = gl.createBuffer();
 const bufB = gl.createBuffer();
-gl.bindBuffer(gl.ARRAY_BUFFER, bufA); gl.bufferData(gl.ARRAY_BUFFER, PARTICLE_COUNT * 32, gl.DYNAMIC_COPY);
-gl.bindBuffer(gl.ARRAY_BUFFER, bufB); gl.bufferData(gl.ARRAY_BUFFER, PARTICLE_COUNT * 32, gl.DYNAMIC_COPY);
+gl.bindBuffer(gl.ARRAY_BUFFER, bufA); gl.bufferData(gl.ARRAY_BUFFER, PARTICLE_COUNT * PARTICLE_SIZE_BYTES, gl.DYNAMIC_COPY);
+gl.bindBuffer(gl.ARRAY_BUFFER, bufB); gl.bufferData(gl.ARRAY_BUFFER, PARTICLE_COUNT * PARTICLE_SIZE_BYTES, gl.DYNAMIC_COPY);
 
 function vao(buffer) {
     const v = gl.createVertexArray();
     gl.bindVertexArray(v);
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 32, 0);
-    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 32, 16);
+    const stride = PARTICLE_SIZE_BYTES;
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, stride, 16);
     return v;
 }
 
@@ -600,14 +605,14 @@ function spawn() {
         ], i*8);
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, state.curr.buf);
-    gl.bufferSubData(gl.ARRAY_BUFFER, state.ptr * 32, dat);
+    gl.bufferSubData(gl.ARRAY_BUFFER, state.ptr * PARTICLE_SIZE_BYTES, dat);
     state.ptr = (state.ptr + n) % PARTICLE_COUNT;
 }
 
-// Count active particles
+// Count active particles (approximation based on spawn rate)
+// TODO: For accurate counting, implement GPU readback or compute-based counting
 function countActiveParticles() {
-    // This is approximated - in a real implementation, you'd read back from GPU
-    // For now, estimate based on spawn rate and decay
+    // Approximate based on spawn pointer position
     return Math.min(state.ptr, PARTICLE_COUNT);
 }
 
@@ -671,7 +676,7 @@ function tick(now) {
     }
 
     // 2. Clear & Blend
-    gl.clearColor(0, 0, 0.01, 1);
+    gl.clearColor(0, 0, CLEAR_COLOR_BLUE, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
