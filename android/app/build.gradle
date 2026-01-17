@@ -11,13 +11,61 @@ android {
         minSdk 24
         targetSdk 34
         versionCode 1
-        versionName "1.0"
+        versionName "1.0.0"
+        
+        // Enable vector drawable support for older Android versions
+        vectorDrawables.useSupportLibrary = true
+    }
+
+    // Signing configuration for release builds
+    signingConfigs {
+        release {
+            // For production: Store these in keystore.properties or use Play App Signing
+            // Example keystore.properties:
+            // storeFile=/path/to/keystore.jks
+            // storePassword=your_store_password
+            // keyAlias=your_key_alias
+            // keyPassword=your_key_password
+            
+            // Using Play App Signing (recommended)
+            // Upload bundle and let Google manage signing
+            // For local signing, uncomment and configure:
+            /*
+            def keystorePropertiesFile = rootProject.file("keystore.properties")
+            if (keystorePropertiesFile.exists()) {
+                def keystoreProperties = new Properties()
+                keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+                
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+            */
+        }
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+            debuggable true
+        }
+        
         release {
-            minifyEnabled false
+            // Enable code shrinking, obfuscation, and optimization
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            
+            // Sign with release config (configure keystore.properties or use Play App Signing)
+            // signingConfig signingConfigs.release
+            
+            // Disable debugging
+            debuggable false
+            
+            // Enable Crashlytics/Analytics in production (if needed)
+            buildConfigField "boolean", "ENABLE_ANALYTICS", "true"
         }
     }
 
@@ -25,9 +73,34 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+    
+    // Bundle configuration for Google Play
+    bundle {
+        language {
+            // Disable language split for universal APK
+            enableSplit = false
+        }
+        density {
+            // Enable density splits for smaller downloads
+            enableSplit = true
+        }
+        abi {
+            // Enable ABI splits for smaller downloads
+            enableSplit = true
+        }
+    }
+    
+    // Lint options for production
+    lintOptions {
+        checkReleaseBuilds true
+        abortOnError false
+    }
 }
 
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.material:material:1.9.0'
+    implementation 'com.google.android.material:material:1.11.0'
+    
+    // WebView support
+    implementation 'androidx.webkit:webkit:1.9.0'
 }

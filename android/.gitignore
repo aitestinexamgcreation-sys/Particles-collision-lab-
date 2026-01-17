@@ -42,12 +42,17 @@ local.properties
 # Android Studio captures folder
 captures/
 
-# Keystore files
+# Keystore files - NEVER COMMIT THESE!
 *.jks
 *.keystore
+keystore.properties
 
 # Version control
 vcs.xml
 
 # Misc
 .DS_Store
+
+# Google Play signing (if using local signing)
+google-services.json
+release/
